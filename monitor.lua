@@ -1,9 +1,13 @@
-local UPDATE_INTERVAL = 3 -- Refresh every 3 seconds
+-- Configuration
+local SERVER_ID = 123  -- Change this to your Stockpile Server's Computer ID!
+local UPDATE_INTERVAL = 3 
+local MODEM_SIDE = "back" -- Side the modem is on
 
--- Auto-detect external monitor, or default to the computer terminal
+rednet.open(MODEM_SIDE)
 local display = peripheral.find("monitor") or term
+
 if display == peripheral.find("monitor") then
-    display.setTextScale(1) -- Adjust this number if the text is too big/small on your monitor
+    display.setTextScale(1) 
 end
 
 local function drawProgressBar(used, total, y)
@@ -11,12 +15,10 @@ local function drawProgressBar(used, total, y)
     local barWidth = width - 4
     local fillWidth = math.floor((used / total) * barWidth)
     
-    -- Draw background
     display.setCursorPos(2, y)
     display.setBackgroundColor(colors.gray)
     display.write(string.rep(" ", barWidth))
     
-    -- Draw fill
     display.setCursorPos(2, y)
     display.setBackgroundColor(colors.green)
     display.write(string.rep(" ", fillWidth))
@@ -25,12 +27,12 @@ local function drawProgressBar(used, total, y)
 end
 
 local function fetchStorageData()
-    -- Since we are running on the server itself, we try to call the API directly
-    -- instead of using Rednet. 
-    if type(usage) == "function" then
-        return usage()
-    elseif _G.stockpile and type(_G.stockpile.usage) == "function" then
-        return _G.stockpile.usage()
+    local requestUUID = math.random(1, 2^31)
+    rednet.send(SERVER_ID, {"usage()", requestUUID})
+    local id, message = rednet.receive(3)
+    
+    if id == SERVER_ID and type(message) == "table" and message[2] == requestUUID then
+        return message[1]
     end
     return nil
 end
@@ -40,10 +42,9 @@ local function updateScreen()
         display.clear()
         display.setCursorPos(1, 1)
         display.setTextColor(colors.yellow)
-        display.write(" --- Local Storage Monitor --- ")
+        display.write(" --- Stockpile Storage Monitor --- ")
         display.setTextColor(colors.white)
         
-        -- Fetch local data directly
         local data = fetchStorageData()
         
         if data and data.total_slots then
@@ -52,7 +53,7 @@ local function updateScreen()
             local percent = math.floor((used / total) * 100)
             
             display.setCursorPos(2, 3)
-            display.write("Status: ONLINE (Local)")
+            display.write("Status: ONLINE")
             
             display.setCursorPos(2, 5)
             display.write("Used Slots:  " .. used)
@@ -67,9 +68,9 @@ local function updateScreen()
         else
             display.setTextColor(colors.red)
             display.setCursorPos(2, 3)
-            display.write("Error: Could not read local data.")
+            display.write("Error: Could not connect to server.")
             display.setCursorPos(2, 4)
-            display.write("API function 'usage()' not found.")
+            display.write("Check Server ID and Whitelist.")
         end
         
         display.setTextColor(colors.gray)
@@ -80,5 +81,4 @@ local function updateScreen()
     end
 end
 
--- Start the display loop
 updateScreen()
