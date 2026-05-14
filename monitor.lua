@@ -29,14 +29,25 @@ end
 local function fetchStorageData()
     local requestUUID = math.random(1, 2^31)
     
-    -- ADDED "stockpile" PROTOCOL HERE
+    -- Send WITH the protocol so the server accepts it
     rednet.send(SERVER_ID, {"usage()", requestUUID}, "stockpile")
     
-    -- LISTENING FOR "stockpile" PROTOCOL HERE
-    local id, message = rednet.receive("stockpile", 3)
+    -- Receive WITHOUT the protocol, because the server forgets to use it
+    local id, message = rednet.receive(3)
     
-    if id == SERVER_ID and type(message) == "table" and message[2] == requestUUID then
-        return message[1]
+    if id == SERVER_ID then
+        -- Check if it matches the documentation's table format
+        if type(message) == "table" and message[2] == requestUUID then
+            return message[1]
+        else
+            -- If the server sends weird data, print it to the computer screen!
+            local oldTerm = term.redirect(term.native())
+            term.clear()
+            term.setCursorPos(1,1)
+            print("Received unexpected data format from server:")
+            print(textutils.serialize(message))
+            term.redirect(oldTerm)
+        end
     end
     
     return nil
@@ -75,7 +86,7 @@ local function updateScreen()
             display.setCursorPos(2, 3)
             display.write("Error: Timeout or invalid data.")
             display.setCursorPos(2, 4)
-            display.write("Waiting for Server ID: " .. SERVER_ID)
+            display.write("Check computer screen for logs.")
         end
         
         display.setTextColor(colors.gray)
@@ -86,6 +97,4 @@ local function updateScreen()
     end
 end
 
--- Make sure you type 'exit()' in the server's lua prompt and 
--- reboot the server so Stockpile is running normally again!
 updateScreen()
