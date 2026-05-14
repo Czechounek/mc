@@ -1,17 +1,25 @@
 local SERVER_ID = 5
 rednet.open("top")
 
-print("Sending updated unit configuration to server...")
+print("Reorganizing Stockpile units...")
 
--- Updated Command 1: Now using "storage_controller_1"
-local setCommand = [[unit.set("storage", {"functionalstorage:storage_controller_1", "jumbofurnace:jumbo_furnace_exterior_0", "metalbarrels:crystal_1"})]]
-rednet.send(SERVER_ID, {setCommand, 1}, "stockpile")
+-- 1. Redefine 'storage' to REMOVE the metal barrel
+local updateStorage = [[unit.set("storage", {"functionalstorage:storage_controller_1", "jumbofurnace:jumbo_furnace_exterior_0"})]]
+rednet.send(SERVER_ID, {updateStorage, 1}, "stockpile")
+sleep(0.5)
 
-sleep(1)
+-- 2. Create the new 'bordelchest' unit and ADD the metal barrel to it
+local createBordel = [[unit.set("bordelchest", {"metalbarrels:crystal_1"})]]
+rednet.send(SERVER_ID, {createBordel, 2}, "stockpile")
+sleep(0.5)
 
--- Updated Command 2: Scan the inventories again
-print("Sending scan command...")
-local scanCommand = [[scan({"functionalstorage:storage_controller_1", "jumbofurnace:jumbo_furnace_exterior_0", "metalbarrels:crystal_1"})]]
-rednet.send(SERVER_ID, {scanCommand, 2}, "stockpile")
+-- 3. (Optional but recommended) Tell Stockpile to ignore the trash chest in searches
+local ignoreBordel = [[unit.is_io("bordelchest", false)]]
+rednet.send(SERVER_ID, {ignoreBordel, 3}, "stockpile")
+sleep(0.5)
 
-print("Done! The server now knows the new ID.")
+-- 4. Rescan everything so the server remembers the new slot counts
+local scanAll = [[scan({"functionalstorage:storage_controller_1", "jumbofurnace:jumbo_furnace_exterior_0", "metalbarrels:crystal_1"})]]
+rednet.send(SERVER_ID, {scanAll, 4}, "stockpile")
+
+print("Done! Your units are now separated.")
