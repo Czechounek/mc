@@ -3,11 +3,6 @@ local SERVER_ID = 5  -- Your Server ID
 local UPDATE_INTERVAL = 3 
 local MODEM_SIDE = "top" -- Your modem is on top
 
--- Your trash chests go here
-local TRASH_CHESTS = {
-    "metalbarrels:crystal_1"
-}
-
 rednet.open(MODEM_SIDE)
 
 local display = peripheral.find("monitor") or term
@@ -38,15 +33,19 @@ local function drawProgressBar(used, total, y, barColor)
     display.setBackgroundColor(colors.black)
 end
 
--- Checks the physical barrel directly
+-- NEW: Automatically finds ANY connected crystal barrel!
 local function getTrashUsage()
     local totalUsed = 0
     local totalCap = 0
     local foundAny = false
+    local barrelCount = 0
 
-    for _, name in ipairs(TRASH_CHESTS) do
-        if peripheral.isPresent(name) then
+    -- Look at every single device connected to the modem
+    for _, name in ipairs(peripheral.getNames()) do
+        -- If the device's name contains "metalbarrels:crystal"
+        if string.find(name, "metalbarrels:crystal") then
             foundAny = true
+            barrelCount = barrelCount + 1
             totalCap = totalCap + peripheral.call(name, "size")
             
             local items = peripheral.call(name, "list")
@@ -59,9 +58,9 @@ local function getTrashUsage()
     end
 
     if foundAny then
-        return totalUsed, totalCap
+        return totalUsed, totalCap, barrelCount
     else
-        return nil, nil
+        return nil, nil, 0
     end
 end
 
@@ -80,11 +79,11 @@ end
 
 local function updateScreen()
     while true do
-        -- 1. FETCH ALL DATA FIRST (This prevents the screen from blinking while waiting)
+        -- 1. Fetch all data first (prevents blinking)
         local data = fetchStorageData()
-        local tUsed, tCap = getTrashUsage()
+        local tUsed, tCap, tCount = getTrashUsage()
         
-        -- 2. NOW CLEAR AND DRAW INSTANTLY
+        -- 2. Clear and draw instantly
         display.setBackgroundColor(colors.black)
         display.clear()
         
@@ -97,7 +96,6 @@ local function updateScreen()
         display.setTextColor(colors.white)
         
         if type(data) == "table" and data.total_slots then
-            -- Fixing the mod author's typo again
             local total = data.used_slots
             local used = data.total_slots
             local percent = 0
@@ -106,9 +104,7 @@ local function updateScreen()
             display.setCursorPos(2, 3)
             display.write("Slots: " .. used .. " / " .. total .. "  (" .. percent .. "%)")
             
-            -- Draw a green progress bar on row 5
             drawProgressBar(used, total, 5, colors.green)
-            
         else
             display.setTextColor(colors.red)
             display.setCursorPos(2, 3)
@@ -120,7 +116,7 @@ local function updateScreen()
         -- =====================================
         display.setCursorPos(1, 8)
         display.setTextColor(colors.orange)
-        display.write(" --- Bordelcestka --- ")
+        display.write(" --- Bordelchestka --- ")
         display.setTextColor(colors.white)
         
         if tCap then
@@ -128,14 +124,14 @@ local function updateScreen()
             if tCap > 0 then tPercent = math.floor((tUsed / tCap) * 100) end
             
             display.setCursorPos(2, 10)
-            display.write("Slots: " .. tUsed .. " / " .. tCap .. "  (" .. tPercent .. "%)")
+            -- Now tells you how many barrels are linked!
+            display.write("Slots: " .. tUsed .. " / " .. tCap .. "  (" .. tPercent .. "%) [" .. tCount .. "x]")
             
-            -- Draw an orange progress bar on row 12
             drawProgressBar(tUsed, tCap, 12, colors.orange)
         else
             display.setTextColor(colors.gray)
             display.setCursorPos(2, 10)
-            display.write("Status: BARREL DISCONNECTED")
+            display.write("Status: BARRELS DISCONNECTED")
         end
         
         -- =====================================
@@ -144,7 +140,7 @@ local function updateScreen()
         display.setTextColor(colors.gray)
         local _, height = display.getSize()
         display.setCursorPos(2, height)
-        display.write("Refreshing in " .. UPDATE_INTERVAL .. "s...")
+        display.write("InventoryTracker3000")
         
         sleep(UPDATE_INTERVAL)
     end
