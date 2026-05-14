@@ -1,26 +1,13 @@
 -- Configuration
-local SERVER_ID = 123  -- CHANGE THIS to your Stockpile Server's Computer ID!
+local SERVER_ID = 5  -- Your Server ID
 local UPDATE_INTERVAL = 3 
-local MODEM_SIDE = "back" -- Change to the side your modem is on
+local MODEM_SIDE = "top" -- Your modem is on top
 
--- Initialize Rednet
-if not rednet.isOpen(MODEM_SIDE) then
-    rednet.open(MODEM_SIDE)
-end
+rednet.open(MODEM_SIDE)
 
--- Setup displays
-local monitor = peripheral.find("monitor")
-local display = monitor or term
-
-if monitor then
-    monitor.setTextScale(1)
-end
-
--- Logging function (Forces output to the computer's main screen, not the monitor)
-local function logData(msg)
-    local oldTerm = term.redirect(term.native())
-    print("[LOG] " .. msg)
-    term.redirect(oldTerm)
+local display = peripheral.find("monitor") or term
+if display == peripheral.find("monitor") then
+    display.setTextScale(1)
 end
 
 local function drawProgressBar(used, total, y)
@@ -42,53 +29,20 @@ end
 local function fetchStorageData()
     local requestUUID = math.random(1, 2^31)
     
-    logData("--------------------------------")
-    logData("Sending 'usage()' to Server ID: " .. SERVER_ID)
-    logData("UUID: " .. requestUUID)
+    -- ADDED "stockpile" PROTOCOL HERE
+    rednet.send(SERVER_ID, {"usage()", requestUUID}, "stockpile")
     
-    rednet.send(SERVER_ID, {"usage()", requestUUID})
+    -- LISTENING FOR "stockpile" PROTOCOL HERE
+    local id, message = rednet.receive("stockpile", 3)
     
-    logData("Waiting 3s for response...")
-    local senderId, message = rednet.receive(3)
-    
-    -- Check for timeout
-    if not senderId then
-        logData("ERROR: Timeout. No response from server.")
-        return nil
-    end
-    
-    logData("Received response from ID: " .. tostring(senderId))
-    logData("Message type: " .. type(message))
-    
-    -- If it's not from our server, ignore it but log it
-    if senderId ~= SERVER_ID then
-        logData("WARNING: Ignored message from wrong ID.")
-        return nil
-    end
-    
-    -- Check data formatting
-    if type(message) == "table" then
-        logData("Data[1] type: " .. type(message[1]))
-        logData("Data[2] UUID: " .. tostring(message[2]))
-        
-        if message[2] == requestUUID then
-            logData("SUCCESS: Valid data verified.")
-            return message[1]
-        else
-            logData("ERROR: UUID mismatch.")
-        end
-    else
-        logData("ERROR: Response was not a table. Raw content: " .. tostring(message))
+    if id == SERVER_ID and type(message) == "table" and message[2] == requestUUID then
+        return message[1]
     end
     
     return nil
 end
 
 local function updateScreen()
-    term.native().clear()
-    term.native().setCursorPos(1,1)
-    logData("Starting Stockpile Diagnostic Monitor...")
-
     while true do
         display.clear()
         display.setCursorPos(1, 1)
@@ -98,7 +52,7 @@ local function updateScreen()
         
         local data = fetchStorageData()
         
-        if type(data) == "table" and data.total_slots then
+        if data and data.total_slots then
             local used = data.used_slots
             local total = data.total_slots
             local percent = math.floor((used / total) * 100)
@@ -119,9 +73,9 @@ local function updateScreen()
         else
             display.setTextColor(colors.red)
             display.setCursorPos(2, 3)
-            display.write("Error: Could not connect to server.")
+            display.write("Error: Timeout or invalid data.")
             display.setCursorPos(2, 4)
-            display.write("Check logs on computer terminal.")
+            display.write("Waiting for Server ID: " .. SERVER_ID)
         end
         
         display.setTextColor(colors.gray)
@@ -132,5 +86,6 @@ local function updateScreen()
     end
 end
 
--- Start the loop
+-- Make sure you type 'exit()' in the server's lua prompt and 
+-- reboot the server so Stockpile is running normally again!
 updateScreen()
