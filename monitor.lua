@@ -15,7 +15,7 @@ if display == peripheral.find("monitor") then
     display.setTextScale(1)
 end
 
--- Upgraded Progress Bar (Now supports custom colors!)
+-- Upgraded Progress Bar
 local function drawProgressBar(used, total, y, barColor)
     local width, _ = display.getSize()
     local barWidth = width - 4
@@ -80,6 +80,12 @@ end
 
 local function updateScreen()
     while true do
+        -- 1. FETCH ALL DATA FIRST (This prevents the screen from blinking while waiting)
+        local data = fetchStorageData()
+        local tUsed, tCap = getTrashUsage()
+        
+        -- 2. NOW CLEAR AND DRAW INSTANTLY
+        display.setBackgroundColor(colors.black)
         display.clear()
         
         -- =====================================
@@ -89,8 +95,6 @@ local function updateScreen()
         display.setTextColor(colors.yellow)
         display.write(" --- Main Storage --- ")
         display.setTextColor(colors.white)
-        
-        local data = fetchStorageData()
         
         if type(data) == "table" and data.total_slots then
             -- Fixing the mod author's typo again
@@ -118,8 +122,6 @@ local function updateScreen()
         display.setTextColor(colors.orange)
         display.write(" --- Bordelcestka --- ")
         display.setTextColor(colors.white)
-        
-        local tUsed, tCap = getTrashUsage()
         
         if tCap then
             local tPercent = 0
