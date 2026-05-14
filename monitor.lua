@@ -13,7 +13,11 @@ end
 local function drawProgressBar(used, total, y)
     local width, _ = display.getSize()
     local barWidth = width - 4
-    local fillWidth = math.floor((used / total) * barWidth)
+    
+    -- SAFETY CLAMP: math.min ensures the ratio never goes above 1 (100%)
+    -- even if the data gets weird again.
+    local fillRatio = math.min(1, used / total)
+    local fillWidth = math.floor(fillRatio * barWidth)
     
     display.setCursorPos(2, y)
     display.setBackgroundColor(colors.gray)
@@ -29,25 +33,11 @@ end
 local function fetchStorageData()
     local requestUUID = math.random(1, 2^31)
     
-    -- Send WITH the protocol so the server accepts it
     rednet.send(SERVER_ID, {"usage()", requestUUID}, "stockpile")
-    
-    -- Receive WITHOUT the protocol, because the server forgets to use it
     local id, message = rednet.receive(3)
     
-    if id == SERVER_ID then
-        -- Check if it matches the documentation's table format
-        if type(message) == "table" and message[2] == requestUUID then
-            return message[1]
-        else
-            -- If the server sends weird data, print it to the computer screen!
-            local oldTerm = term.redirect(term.native())
-            term.clear()
-            term.setCursorPos(1,1)
-            print("Received unexpected data format from server:")
-            print(textutils.serialize(message))
-            term.redirect(oldTerm)
-        end
+    if id == SERVER_ID and type(message) == "table" and message[2] == requestUUID then
+        return message[1]
     end
     
     return nil
@@ -63,9 +53,10 @@ local function updateScreen()
         
         local data = fetchStorageData()
         
-        if data and data.total_slots then
-            local used = data.used_slots
-            local total = data.total_slots
+        if type(data) == "table" and data.total_slots then
+            -- THE FIX: We swapped 'used' and 'total' here to fix the mod author's typo!
+            local total = data.used_slots
+            local used = data.total_slots
             local percent = math.floor((used / total) * 100)
             
             display.setCursorPos(2, 3)
@@ -81,12 +72,23 @@ local function updateScreen()
             display.write("Fullness:    " .. percent .. "%")
             
             drawProgressBar(used, total, 10)
+            
+        elseif type(data) == "string" then
+            display.setTextColor(colors.red)
+            display.setCursorPos(2, 3)
+            display.write("Server API Error:")
+            
+            display.setTextColor(colors.white)
+            display.setCursorPos(2, 5)
+            local shortError = string.sub(data, 1, 35) .. "..."
+            display.write(shortError)
+            
         else
             display.setTextColor(colors.red)
             display.setCursorPos(2, 3)
-            display.write("Error: Timeout or invalid data.")
+            display.write("Error: Timeout.")
             display.setCursorPos(2, 4)
-            display.write("Check computer screen for logs.")
+            display.write("Waiting for Server ID: " .. SERVER_ID)
         end
         
         display.setTextColor(colors.gray)
