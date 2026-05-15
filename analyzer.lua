@@ -1,6 +1,6 @@
 -- Configuration
 local SERVER_ID = 5  -- Make sure this matches your main Stockpile server
-local MODEM_SIDE = "top" -- Change if the modem on this new PC is on the back/side
+local MODEM_SIDE = "back" -- Your modem is on the back!
 
 rednet.open(MODEM_SIDE)
 
@@ -100,4 +100,14 @@ local function run()
             -- Clean up the name by removing "minecraft:" or the mod name prefix
             local cleanName = item.name:gsub("^.-:", "")
             
-            -- Format it into
+            -- Format it into a nice column
+            print(string.format("%2d. %-18s : %d", i, cleanName, item.count))
+        end
+    end
+    
+    term.setTextColor(colors.gray)
+    print("\nPress any key to exit.")
+    os.pullEvent("key")
+end
+
+run()
